@@ -1,0 +1,14 @@
+{
+  "name": "eraser-personalized",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "client",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace client",
+    "build": "npm run build --workspace client",
+    "typecheck": "npm run typecheck --workspace client"
+  }
+}
