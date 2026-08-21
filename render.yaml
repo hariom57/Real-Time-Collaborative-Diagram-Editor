@@ -9,4 +9,4 @@ services:
       - key: PORT
         value: 10000
       - key: CLIENT_ORIGIN
-        value: https://real-time-collaborative-diagram-edi.vercel.app
+        value: https://nodeboard-hariom57s-projects.vercel.app
