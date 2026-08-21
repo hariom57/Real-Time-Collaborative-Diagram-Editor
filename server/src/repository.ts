@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { config } from './config';
 import type { BoardRecord, DiagramDocument } from '@shared/index';
 
@@ -26,7 +26,7 @@ export async function saveBoard(board: BoardRow): Promise<void> {
   await ensureDir();
   const tempPath = boardPath(board.id) + '.tmp';
   await writeFile(tempPath, JSON.stringify(board, null, 2), 'utf8');
-  await writeFile(boardPath(board.id), JSON.stringify(board, null, 2), 'utf8');
+  await rename(tempPath, boardPath(board.id));
 }
 
 export async function getOrCreateBoard(boardId: string): Promise<BoardRow> {

@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/board/:boardId",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

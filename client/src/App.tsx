@@ -38,7 +38,9 @@ export function App() {
         connectBoard(id);
         setReady(true);
       } catch {
+        useCanvasStore.getState().hydrate();
         setConnectionStatus('disconnected');
+        setReady(true);
       }
     };
     void run();

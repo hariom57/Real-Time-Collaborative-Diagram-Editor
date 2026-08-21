@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: nodeboard-server
+    env: node
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: CLIENT_ORIGIN
+        value: https://nodeboard.vercel.app

@@ -3,18 +3,15 @@ import type {
   BoardRecord,
   ClientToServerMessage,
   DiagramShape,
-  PresenceUser,
   ServerToClientMessage,
 } from '@shared/index';
-
-type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
 let socket: WebSocket | null = null;
 let activeBoardId: string | null = null;
 let activeClientId: string | null = null;
 
 export async function loadBoard(boardId: string) {
-  const response = await fetch(`/api/boards/${boardId}`);
+  const response = await fetch(`${getApiBase()}/api/boards/${boardId}`);
   if (!response.ok) throw new Error(`Failed to load board ${boardId}`);
   return (await response.json()) as BoardRecord;
 }
@@ -89,7 +86,11 @@ function getClientId() {
 }
 
 function getWsBase() {
-  return `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`;
+  return import.meta.env.VITE_WS_BASE_URL ?? `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`;
+}
+
+function getApiBase() {
+  return import.meta.env.VITE_API_BASE_URL ?? `${location.protocol}//${location.host}`;
 }
 
 function parseMessage(data: string): ServerToClientMessage | null {

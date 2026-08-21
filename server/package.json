@@ -5,17 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "tsx src/index.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "express": "^4.21.2",
+    "tsx": "^4.19.4",
     "ws": "^8.18.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/ws": "^8.5.15",
-    "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   }
 }
