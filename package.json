@@ -4,11 +4,13 @@
   "version": "0.1.0",
   "workspaces": [
     "client",
-    "shared"
+    "shared",
+    "server"
   ],
   "scripts": {
     "dev": "npm run dev --workspace client",
-    "build": "npm run build --workspace client",
-    "typecheck": "npm run typecheck --workspace client"
+    "dev:server": "npm run dev --workspace server",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
   }
 }

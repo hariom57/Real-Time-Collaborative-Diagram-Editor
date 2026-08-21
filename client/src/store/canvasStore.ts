@@ -8,9 +8,11 @@ import {
   getCircleGeometry,
   makeEmptyDocument,
 } from '@shared/index';
+import { publishShapeCreated, publishShapeDeleted, publishShapeUpdated, publishTextUpdated } from '../collaboration';
 import type {
   AttachmentPoint,
   Camera,
+  BoardRecord,
   DiagramDocument,
   DiagramShape,
   DraftShape,
@@ -40,7 +42,14 @@ type CanvasStore = {
   historyPast: HistoryEntry[];
   historyFuture: HistoryEntry[];
   initialized: boolean;
+  boardId: string | null;
+  connectionStatus: 'disconnected' | 'connecting' | 'connected';
+  presence: { clientId: string; label: string; cursor: Point | null }[];
   setInitialized: () => void;
+  setBoardFromServer: (board: BoardRecord) => void;
+  setConnectionStatus: (status: 'disconnected' | 'connecting' | 'connected') => void;
+  setPresence: (presence: { clientId: string; label: string; cursor: Point | null }[]) => void;
+  applyRemoteMessage: (message: import('@shared/index').ServerToClientMessage) => void;
   setTool: (tool: ToolId) => void;
   setCamera: (camera: Camera) => void;
   panCamera: (dx: number, dy: number) => void;
@@ -271,7 +280,24 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   historyPast: [],
   historyFuture: [],
   initialized: false,
+  boardId: null,
+  connectionStatus: 'disconnected',
+  presence: [],
   setInitialized: () => set({ initialized: true }),
+  setBoardFromServer: (board) => set({ shapes: board.document.shapes, camera: board.document.camera, boardId: board.id }),
+  setConnectionStatus: (status) => set({ connectionStatus: status }),
+  setPresence: (presence) => set({ presence }),
+  applyRemoteMessage: (message) => {
+    if (message.type === 'shape:created') {
+      set((state) => ({ shapes: [...state.shapes, message.shape] }));
+    } else if (message.type === 'shape:updated') {
+      set((state) => ({ shapes: state.shapes.map((item) => (item.id === message.shape.id ? message.shape : item)) }));
+    } else if (message.type === 'shape:deleted') {
+      set((state) => ({ shapes: state.shapes.filter((shape) => shape.id !== message.shapeId) }));
+    } else if (message.type === 'text:updated') {
+      set((state) => ({ shapes: state.shapes.map((shape) => (shape.id === message.shapeId && shape.kind === 'text' ? { ...shape, text: message.text } : shape)) }));
+    }
+  },
   setTool: (tool) =>
     set((state) => ({
       activeTool: tool,
@@ -311,6 +337,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       draftShape: null,
       selection: { ids: [shape.id], primaryId: shape.id },
     }));
+    publishShapeCreated(shape);
     return shape;
   },
   beginDrag: (ids, anchor) => {
@@ -334,6 +361,13 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       };
     }),
   endDrag: () => {
+    const dragState = get().dragState;
+    if (dragState) {
+      for (const id of dragState.ids) {
+        const shape = get().getShapeById(id);
+        if (shape) publishShapeUpdated(shape);
+      }
+    }
     set({ dragState: null });
   },
   beginResize: (shapeId, handle) => {
@@ -351,6 +385,11 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       return { shapes: state.shapes.map((shape) => (shape.id === shapeId ? nextShape : shape)) };
     }),
   endResize: () => {
+    const resizeState = get().resizeState;
+    if (resizeState) {
+      const shape = get().getShapeById(resizeState.shapeId);
+      if (shape) publishShapeUpdated(shape);
+    }
     set({ resizeState: null });
   },
   addTextDraft: (point) => set({ draftShape: { kind: 'text', point } }),
@@ -365,6 +404,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     const shape = shapeFromTool(draft);
     if (!shape || shape.kind !== 'text') return null;
     set((state) => ({ shapes: [...state.shapes, shape], draftShape: null, selection: { ids: [shape.id], primaryId: shape.id } }));
+    publishShapeCreated(shape);
     return shape;
   },
   openTextEditor: (shapeId) => {
@@ -380,6 +420,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       shapes: state.shapes.map((shape) => (shape.id === editing.shapeId && shape.kind === 'text' ? { ...shape, text: editing.draft } : shape)),
       editingText: null,
     }));
+    publishTextUpdated(editing.shapeId, editing.draft);
   },
   updateShapeText: (shapeId, text, commit = false) =>
     set((state) => ({
@@ -398,6 +439,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       shapes: state.shapes.filter((shape) => !selection.ids.includes(shape.id)),
       selection: { ...DEFAULT_SELECTION },
     }));
+    for (const id of selection.ids) publishShapeDeleted(id);
   },
   moveShapes: (ids, delta, commit = false) => {
     if (commit) pushHistory(set, get);

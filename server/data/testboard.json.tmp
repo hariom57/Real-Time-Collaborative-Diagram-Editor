@@ -1,0 +1,14 @@
+{
+  "id": "testboard",
+  "createdAt": "2026-08-21T10:14:38.389Z",
+  "updatedAt": "2026-08-21T10:14:38.389Z",
+  "document": {
+    "version": 1,
+    "shapes": [],
+    "camera": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  }
+}

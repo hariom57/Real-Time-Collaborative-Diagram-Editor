@@ -50,12 +50,7 @@ export function CanvasEditor() {
   const redo = useCanvasStore((state) => state.redo);
   const panCamera = useCanvasStore((state) => state.panCamera);
   const zoomCameraAt = useCanvasStore((state) => state.zoomCameraAt);
-  const hydrate = useCanvasStore((state) => state.hydrate);
   const persist = useCanvasStore((state) => state.persist);
-
-  useEffect(() => {
-    hydrate();
-  }, [hydrate]);
 
   useEffect(() => {
     const element = containerRef.current;

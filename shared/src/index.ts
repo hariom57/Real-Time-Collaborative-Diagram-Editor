@@ -134,6 +134,95 @@ export type DiagramDocument = {
   camera: Camera;
 };
 
+export type BoardId = string;
+
+export type BoardRecord = {
+  id: BoardId;
+  document: DiagramDocument;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PresenceUser = {
+  clientId: string;
+  label: string;
+  cursor: Point | null;
+};
+
+export type BoardSnapshotMessage = {
+  type: 'board:snapshot';
+  board: BoardRecord;
+  presence: PresenceUser[];
+};
+
+export type BoardPresenceMessage = {
+  type: 'board:presence';
+  boardId: BoardId;
+  users: PresenceUser[];
+};
+
+export type BoardStateMessage = {
+  type: 'board:state';
+  board: BoardRecord;
+};
+
+export type BoardJoinMessage = {
+  type: 'board:join';
+  boardId: BoardId;
+  clientId: string;
+  label?: string;
+};
+
+export type BoardLeaveMessage = {
+  type: 'board:leave';
+  boardId: BoardId;
+  clientId: string;
+};
+
+export type BoardRequestMessage = {
+  type: 'board:request';
+  boardId: BoardId;
+};
+
+export type ShapeCreatedEvent = {
+  type: 'shape:created';
+  boardId: BoardId;
+  shape: DiagramShape;
+};
+
+export type ShapeUpdatedEvent = {
+  type: 'shape:updated';
+  boardId: BoardId;
+  shape: DiagramShape;
+};
+
+export type ShapeDeletedEvent = {
+  type: 'shape:deleted';
+  boardId: BoardId;
+  shapeId: string;
+};
+
+export type TextUpdatedEvent = {
+  type: 'text:updated';
+  boardId: BoardId;
+  shapeId: string;
+  text: string;
+};
+
+export type BoardOperationMessage =
+  | ShapeCreatedEvent
+  | ShapeUpdatedEvent
+  | ShapeDeletedEvent
+  | TextUpdatedEvent;
+
+export type ClientToServerMessage = BoardJoinMessage | BoardLeaveMessage | BoardRequestMessage | BoardOperationMessage;
+
+export type ServerToClientMessage = BoardStateMessage | BoardPresenceMessage | BoardOperationMessage;
+
+export function isBoardId(value: string) {
+  return /^[a-zA-Z0-9_-]{6,64}$/.test(value);
+}
+
 export type DiagramState = {
   shapes: DiagramShape[];
   camera: Camera;
