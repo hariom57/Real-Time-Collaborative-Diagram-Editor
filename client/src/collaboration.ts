@@ -86,11 +86,11 @@ function getClientId() {
 }
 
 function getWsBase() {
-  return import.meta.env.VITE_WS_BASE_URL ?? `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`;
+  return import.meta.env.VITE_WS_BASE_URL ?? 'wss://nodeboard-2mw7.onrender.com';
 }
 
 function getApiBase() {
-  return import.meta.env.VITE_API_BASE_URL ?? `${location.protocol}//${location.host}`;
+  return import.meta.env.VITE_API_BASE_URL ?? 'https://nodeboard-2mw7.onrender.com';
 }
 
 function parseMessage(data: string): ServerToClientMessage | null {

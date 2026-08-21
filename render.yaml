@@ -9,4 +9,4 @@ services:
       - key: PORT
         value: 10000
       - key: CLIENT_ORIGIN
-        value: https://nodeboard.vercel.app
+        value: https://real-time-collaborative-diagram-edi.vercel.app
