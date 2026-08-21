@@ -138,6 +138,7 @@ export type BoardId = string;
 
 export type BoardRecord = {
   id: BoardId;
+  name: string;
   document: DiagramDocument;
   createdAt: string;
   updatedAt: string;
@@ -209,11 +210,18 @@ export type TextUpdatedEvent = {
   text: string;
 };
 
+export type BoardRenamedEvent = {
+  type: 'board:renamed';
+  boardId: BoardId;
+  name: string;
+};
+
 export type BoardOperationMessage =
   | ShapeCreatedEvent
   | ShapeUpdatedEvent
   | ShapeDeletedEvent
-  | TextUpdatedEvent;
+  | TextUpdatedEvent
+  | BoardRenamedEvent;
 
 export type ClientToServerMessage = BoardJoinMessage | BoardLeaveMessage | BoardRequestMessage | BoardOperationMessage;
 

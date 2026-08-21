@@ -1,0 +1,15 @@
+{
+  "id": "board-49e9aa43-4563-4989-97e1-61364b2fdd08",
+  "name": "Untitled Board",
+  "createdAt": "2026-08-21T12:08:57.778Z",
+  "updatedAt": "2026-08-21T12:14:13.795Z",
+  "document": {
+    "version": 1,
+    "shapes": [],
+    "camera": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  }
+}

@@ -16,6 +16,16 @@ export async function loadBoard(boardId: string) {
   return (await response.json()) as BoardRecord;
 }
 
+export async function saveBoardName(boardId: string, name: string) {
+  const response = await fetch(`${getApiBase()}/api/boards/${boardId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!response.ok) throw new Error('Failed to save board name');
+  return (await response.json()) as BoardRecord;
+}
+
 export function connectBoard(boardId: string) {
   disconnectBoard();
   activeBoardId = boardId;
@@ -72,6 +82,11 @@ export function publishTextUpdated(shapeId: string, text: string) {
   sendMessage({ type: 'text:updated', boardId: activeBoardId, shapeId, text });
 }
 
+export function publishBoardRenamed(name: string) {
+  if (!activeBoardId) return;
+  sendMessage({ type: 'board:renamed', boardId: activeBoardId, name });
+}
+
 export function getBoardId() {
   return activeBoardId;
 }
@@ -86,11 +101,13 @@ function getClientId() {
 }
 
 function getWsBase() {
-  return import.meta.env.VITE_WS_BASE_URL ?? 'wss://nodeboard-2mw7.onrender.com';
+  if (import.meta.env.VITE_WS_BASE_URL) return import.meta.env.VITE_WS_BASE_URL;
+  return window.location.origin.replace(/^http/, 'ws');
 }
 
 function getApiBase() {
-  return import.meta.env.VITE_API_BASE_URL ?? 'https://nodeboard-2mw7.onrender.com';
+  if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
+  return window.location.origin;
 }
 
 function parseMessage(data: string): ServerToClientMessage | null {

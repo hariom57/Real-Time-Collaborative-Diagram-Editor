@@ -9,7 +9,11 @@ import type { BoardOperationMessage, BoardRecord, DiagramShape, PresenceUser } f
 const app = express();
 app.use(express.json());
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', config.clientOrigin);
+  const origin = typeof req.headers.origin === 'string' ? req.headers.origin.replace(/\/+$/, '') : '';
+  if (origin && config.allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') {
@@ -31,6 +35,23 @@ app.get('/api/boards/:boardId', async (req, res) => {
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
+app.patch('/api/boards/:boardId', async (req, res) => {
+  const boardId = req.params.boardId;
+  if (!isValidBoardId(boardId)) {
+    res.status(400).json({ error: 'Invalid board id' });
+    return;
+  }
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim().slice(0, 80) : '';
+  if (!name) {
+    res.status(400).json({ error: 'Invalid board name' });
+    return;
+  }
+  const board = await getOrCreateBoard(boardId);
+  const updated = { ...board, name, updatedAt: new Date().toISOString() };
+  await saveBoard(updated);
+  res.json(updated);
+});
+
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
@@ -46,7 +67,7 @@ function roomFor(boardId: string): Room {
   const existing = rooms.get(boardId);
   if (existing) return existing;
   const empty: Room = {
-    board: { id: boardId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), document: { version: 1, shapes: [], camera: { x: 0, y: 0, zoom: 1 } } },
+    board: { id: boardId, name: 'Untitled Board', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), document: { version: 1, shapes: [], camera: { x: 0, y: 0, zoom: 1 } } },
     users: new Map(),
     sockets: new Set(),
   };
@@ -82,7 +103,7 @@ wss.on('connection', async (socket, request) => {
       return;
     }
 
-    if (parsed.type === 'shape:created' || parsed.type === 'shape:updated' || parsed.type === 'shape:deleted' || parsed.type === 'text:updated') {
+    if (parsed.type === 'shape:created' || parsed.type === 'shape:updated' || parsed.type === 'shape:deleted' || parsed.type === 'text:updated' || parsed.type === 'board:renamed') {
       await applyOperation(room, parsed);
       broadcast(room, parsed, socket);
     }
@@ -109,6 +130,15 @@ async function applyOperation(room: Room, op: BoardOperationMessage) {
   if (op.type === 'text:updated') {
     const index = nextShapes.findIndex((shape) => shape.id === op.shapeId && shape.kind === 'text');
     if (index >= 0) nextShapes[index] = { ...(nextShapes[index] as DiagramShape & { kind: 'text' }), text: op.text };
+  }
+  if (op.type === 'board:renamed') {
+    room.board = {
+      ...room.board,
+      name: op.name,
+      updatedAt: new Date().toISOString(),
+    };
+    await saveBoard(room.board);
+    return;
   }
   room.board = {
     ...room.board,

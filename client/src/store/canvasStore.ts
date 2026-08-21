@@ -8,7 +8,7 @@ import {
   getCircleGeometry,
   makeEmptyDocument,
 } from '@shared/index';
-import { publishShapeCreated, publishShapeDeleted, publishShapeUpdated, publishTextUpdated } from '../collaboration';
+import { publishBoardRenamed, publishShapeCreated, publishShapeDeleted, publishShapeUpdated, publishTextUpdated } from '../collaboration';
 import type {
   AttachmentPoint,
   Camera,
@@ -43,12 +43,17 @@ type CanvasStore = {
   historyFuture: HistoryEntry[];
   initialized: boolean;
   boardId: string | null;
+  boardName: string;
   connectionStatus: 'disconnected' | 'connecting' | 'connected';
   presence: { clientId: string; label: string; cursor: Point | null }[];
+  saveStatus: 'idle' | 'saving' | 'saved' | 'offline' | 'error';
   setInitialized: () => void;
   setBoardFromServer: (board: BoardRecord) => void;
   setConnectionStatus: (status: 'disconnected' | 'connecting' | 'connected') => void;
   setPresence: (presence: { clientId: string; label: string; cursor: Point | null }[]) => void;
+  setSaveStatus: (status: 'idle' | 'saving' | 'saved' | 'offline' | 'error') => void;
+  setBoardName: (name: string) => void;
+  renameBoard: (name: string) => void;
   applyRemoteMessage: (message: import('@shared/index').ServerToClientMessage) => void;
   setTool: (tool: ToolId) => void;
   setCamera: (camera: Camera) => void;
@@ -281,12 +286,16 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   historyFuture: [],
   initialized: false,
   boardId: null,
+  boardName: 'Untitled Board',
   connectionStatus: 'disconnected',
   presence: [],
+  saveStatus: 'idle',
   setInitialized: () => set({ initialized: true }),
-  setBoardFromServer: (board) => set({ shapes: board.document.shapes, camera: board.document.camera, boardId: board.id }),
+  setBoardFromServer: (board) => set({ shapes: board.document.shapes, camera: board.document.camera, boardId: board.id, boardName: board.name }),
   setConnectionStatus: (status) => set({ connectionStatus: status }),
   setPresence: (presence) => set({ presence }),
+  setSaveStatus: (saveStatus) => set({ saveStatus }),
+  setBoardName: (name) => set({ boardName: name }),
   applyRemoteMessage: (message) => {
     if (message.type === 'shape:created') {
       set((state) => ({ shapes: [...state.shapes, message.shape] }));
@@ -296,6 +305,8 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       set((state) => ({ shapes: state.shapes.filter((shape) => shape.id !== message.shapeId) }));
     } else if (message.type === 'text:updated') {
       set((state) => ({ shapes: state.shapes.map((shape) => (shape.id === message.shapeId && shape.kind === 'text' ? { ...shape, text: message.text } : shape)) }));
+    } else if (message.type === 'board:renamed') {
+      set({ boardName: message.name });
     }
   },
   setTool: (tool) =>
@@ -422,6 +433,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     }));
     publishTextUpdated(editing.shapeId, editing.draft);
   },
+  renameBoard: (name) => set({ boardName: name, saveStatus: 'saving' }),
   updateShapeText: (shapeId, text, commit = false) =>
     set((state) => ({
       shapes: state.shapes.map((shape) => (shape.id === shapeId && shape.kind === 'text' ? { ...shape, text } : shape)),
@@ -508,6 +520,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       shapes: [],
       camera: { ...DEFAULT_CAMERA },
       selection: { ...DEFAULT_SELECTION },
+      boardName: 'Untitled Board',
       draftShape: null,
       resizeState: null,
       dragState: null,

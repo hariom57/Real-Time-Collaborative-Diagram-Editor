@@ -1,35 +1,45 @@
-import { useMemo } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CanvasEditor } from './components/CanvasEditor';
 import { Toolbar } from './components/Toolbar';
 import { useCanvasStore } from './store/canvasStore';
 import { exportCanvasToPng, exportCanvasToSvg } from './exporters';
-import { connectBoard, disconnectBoard, getBoardId, loadBoard } from './collaboration';
-import { isBoardId, createId } from '@shared/index';
+import { connectBoard, disconnectBoard, getBoardId, loadBoard, publishBoardRenamed, saveBoardName } from './collaboration';
+import { createId, isBoardId } from '@shared/index';
+
+type RecentBoard = { id: string; name: string; updatedAt: string };
+
+const RECENTS_KEY = 'nodeboard.recentBoards';
 
 export function App() {
+  const pathname = window.location.pathname;
+  const isBoardRoute = pathname.startsWith('/board/');
   const shapes = useCanvasStore((state) => state.shapes);
   const camera = useCanvasStore((state) => state.camera);
   const selection = useCanvasStore((state) => state.selection);
   const boardId = useCanvasStore((state) => state.boardId);
+  const boardName = useCanvasStore((state) => state.boardName);
   const connectionStatus = useCanvasStore((state) => state.connectionStatus);
+  const saveStatus = useCanvasStore((state) => state.saveStatus);
   const presence = useCanvasStore((state) => state.presence);
   const setBoardFromServer = useCanvasStore((state) => state.setBoardFromServer);
   const setConnectionStatus = useCanvasStore((state) => state.setConnectionStatus);
   const setPresence = useCanvasStore((state) => state.setPresence);
+  const setBoardName = useCanvasStore((state) => state.setBoardName);
+  const setSaveStatus = useCanvasStore((state) => state.setSaveStatus);
+  const renameBoard = useCanvasStore((state) => state.renameBoard);
   const [ready, setReady] = useState(false);
-
-  const emptyState = useMemo(() => shapes.length === 0, [shapes.length]);
+  const [recentBoards, setRecentBoards] = useState<RecentBoard[]>(() => readRecents());
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isBoardRoute) return;
     const run = async () => {
       let id = getBoardId();
       if (!id) {
-        const segments = location.pathname.split('/').filter(Boolean);
-        const candidate = segments[0] === 'board' ? segments[1] : null;
+        const candidate = pathname.split('/').filter(Boolean)[1];
         id = candidate && isBoardId(candidate) ? candidate : createId('board');
-        if (location.pathname !== `/board/${id}`) {
-          history.replaceState(null, '', `/board/${id}`);
+        if (window.location.pathname !== `/board/${id}`) {
+          window.history.replaceState(null, '', `/board/${id}`);
         }
       }
       try {
@@ -37,6 +47,8 @@ export function App() {
         setBoardFromServer(board);
         connectBoard(id);
         setReady(true);
+        touchRecent(board.id, board.name, board.updatedAt);
+        setRecentBoards(readRecents());
       } catch {
         useCanvasStore.getState().hydrate();
         setConnectionStatus('disconnected');
@@ -45,29 +57,81 @@ export function App() {
     };
     void run();
     return () => disconnectBoard();
-  }, [setBoardFromServer, setConnectionStatus, setPresence]);
+  }, [isBoardRoute, pathname, setBoardFromServer, setConnectionStatus, setPresence]);
+
+  useEffect(() => {
+    if (!boardId) return;
+    const timer = window.setTimeout(async () => {
+      try {
+        setSaveStatus('saving');
+        const saved = await saveBoardName(boardId, boardName);
+        setBoardFromServer(saved);
+        publishBoardRenamed(saved.name);
+        setSaveStatus('saved');
+        touchRecent(saved.id, saved.name, saved.updatedAt);
+        setRecentBoards(readRecents());
+      } catch {
+        setSaveStatus('error');
+      }
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [boardId, boardName, setBoardFromServer, setSaveStatus]);
+
+  const emptyState = useMemo(() => shapes.length === 0, [shapes.length]);
+
+  if (!isBoardRoute) {
+    return (
+      <div className="app-shell home-shell">
+        <section className="home-panel">
+          <p className="eyebrow">NodeBoard</p>
+          <h1>Collaborative diagramming for teams and engineers.</h1>
+          <p className="subtle-copy">Create system diagrams, sketch flows, and collaborate in real time.</p>
+          <button type="button" className="primary-button" onClick={createBoard}>
+            + New Board
+          </button>
+        </section>
+        <section className="recent-panel">
+          <div className="panel-header">
+            <h2>Recent Boards</h2>
+          </div>
+          <div className="recent-list">
+            {recentBoards.length ? recentBoards.map((board) => (
+              <button key={board.id} type="button" className="recent-item" onClick={() => window.location.assign(`/board/${board.id}`)}>
+                <span>{board.name}</span>
+                <small>{board.id}</small>
+              </button>
+            )) : <p className="subtle-copy">No recent boards yet.</p>}
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">NodeBoard</p>
-          <h1>Diagram editor</h1>
-          <p className="subtle-copy">Pan, zoom, draw, connect, and edit diagrams on an infinite canvas.</p>
+      <header className="topbar board-topbar">
+        <div className="brand-group">
+          <button type="button" className="brand-button" onClick={() => window.location.assign('/')}>NodeBoard</button>
+          <input
+            className="board-name-input"
+            value={boardName}
+            onChange={(event) => renameBoard(event.target.value)}
+            aria-label="Board name"
+            spellCheck={false}
+          />
         </div>
         <div className="header-actions">
-          <button
-            type="button"
-            className="header-button"
-            onClick={() => navigator.clipboard.writeText(location.href)}
-          >
-            Copy board URL
+          <span className={`status-pill status-${connectionStatus}`}>{connectionStatus}</span>
+          <span className={`status-pill status-${saveStatus}`}>{saveLabel(saveStatus)}</span>
+          <span className="status-pill">👥 {presence.length}</span>
+          <button type="button" className="header-button" onClick={handleShare}>
+            Share
           </button>
           <button type="button" className="header-button" onClick={() => exportCanvasToPng()}>
-            Export PNG
+            PNG
           </button>
           <button type="button" className="header-button" onClick={() => exportCanvasToSvg()}>
-            Export SVG
+            SVG
           </button>
         </div>
       </header>
@@ -82,12 +146,48 @@ export function App() {
             <span>{selection.ids.length ? `${selection.ids.length} selected` : 'No selection'}</span>
             <span>Zoom {Math.round(camera.zoom * 100)}%</span>
             <span>{shapes.length} objects</span>
-            <span>{connectionStatus}</span>
-            <span>{boardId ? `Board ${boardId}` : ''}</span>
-            <span>{presence.length} online</span>
+            <span>{boardId}</span>
           </footer>
         </section>
       </main>
+      {shareFeedback && <div className="toast">{shareFeedback}</div>}
     </div>
   );
+
+  async function handleShare() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setShareFeedback('Link copied');
+    } catch {
+      setShareFeedback('Couldn’t copy link');
+    }
+    window.setTimeout(() => setShareFeedback(null), 1600);
+  }
+}
+
+function createBoard() {
+  const id = createId('board');
+  window.location.assign(`/board/${id}`);
+}
+
+function saveLabel(value: string) {
+  if (value === 'saving') return 'Saving...';
+  if (value === 'saved') return 'Saved';
+  if (value === 'offline') return 'Offline';
+  if (value === 'error') return "Couldn't save changes";
+  return 'Saved';
+}
+
+function readRecents(): RecentBoard[] {
+  try {
+    return JSON.parse(localStorage.getItem(RECENTS_KEY) ?? '[]') as RecentBoard[];
+  } catch {
+    return [];
+  }
+}
+
+function touchRecent(id: string, name: string, updatedAt: string) {
+  const recents = readRecents().filter((item) => item.id !== id);
+  recents.unshift({ id, name, updatedAt });
+  localStorage.setItem(RECENTS_KEY, JSON.stringify(recents.slice(0, 8)));
 }

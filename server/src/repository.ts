@@ -35,6 +35,7 @@ export async function getOrCreateBoard(boardId: string): Promise<BoardRow> {
   const now = new Date().toISOString();
   const created: BoardRow = {
     id: boardId,
+    name: 'Untitled Board',
     createdAt: now,
     updatedAt: now,
     document: { version: 1, shapes: [], camera: { x: 0, y: 0, zoom: 1 } },
