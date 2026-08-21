@@ -1,11 +1,11 @@
 {
   "rewrites": [
     {
-      "source": "/board/:boardId",
+      "source": "/board/(.*)",
       "destination": "/index.html"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!.*\\.).*)",
       "destination": "/index.html"
     }
   ]
